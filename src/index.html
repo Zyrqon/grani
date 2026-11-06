@@ -225,12 +225,12 @@ controls.mouseButtons={LEFT:-1,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
 controls.touches={ONE:-1,TWO:THREE.TOUCH.DOLLY_PAN};
 controls.autoRotateSpeed=2.0;
 
-// трекбол в стиле Blender: модель вращается свободно, камера на месте
+// поворот: вокруг вертикали (горизонт) и наклон, без заваливания набок
 const pivot=new THREE.Group();scene.add(pivot);
-const _right=new THREE.Vector3(),_up=new THREE.Vector3(),_q=new THREE.Quaternion();
+const _right=new THREE.Vector3(),_up=new THREE.Vector3(),_q=new THREE.Quaternion();const _YUP=new THREE.Vector3(0,1,0);
 const cv=renderer.domElement,active=new Map();let tPts=null;
 cv.addEventListener('pointerdown',e=>{active.set(e.pointerId,{x:e.clientX,y:e.clientY});if(active.size===1&&model&&(e.pointerType!=='mouse'||e.button===0)){tPts={id:e.pointerId,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(_){}}else tPts=null;});
-cv.addEventListener('pointermove',e=>{if(!tPts||e.pointerId!==tPts.id||!model)return;const p=active.get(e.pointerId);const dx=e.clientX-tPts.x,dy=e.clientY-tPts.y;tPts.x=e.clientX;tPts.y=e.clientY;if(p){p.x=e.clientX;p.y=e.clientY;}const d=Math.hypot(dx,dy);if(!d)return;_up.setFromMatrixColumn(camera.matrixWorld,1).multiplyScalar(dx);_right.setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(dy);_up.add(_right);_up.normalize();_q.setFromAxisAngle(_up,d/cv.clientHeight*6.283*2);pivot.quaternion.premultiply(_q);});
+cv.addEventListener('pointermove',e=>{if(!tPts||e.pointerId!==tPts.id||!model)return;const p=active.get(e.pointerId);const dx=e.clientX-tPts.x,dy=e.clientY-tPts.y;tPts.x=e.clientX;tPts.y=e.clientY;if(p){p.x=e.clientX;p.y=e.clientY;}if(!dx&&!dy)return;_q.setFromAxisAngle(_YUP,dx/cv.clientHeight*6.283*2);pivot.quaternion.premultiply(_q);_right.setFromMatrixColumn(camera.matrixWorld,0);_q.setFromAxisAngle(_right,dy/cv.clientHeight*6.283*2);pivot.quaternion.premultiply(_q);});
 const endT=e=>{active.delete(e.pointerId);if(tPts&&e.pointerId===tPts.id){tPts=null;try{cv.releasePointerCapture(e.pointerId);}catch(_){}}};
 cv.addEventListener('pointerup',endT);cv.addEventListener('pointercancel',endT);
 
@@ -251,12 +251,12 @@ addEventListener('resize',resize);
 addEventListener('orientationchange',()=>setTimeout(resize,250));
 if(window.visualViewport)visualViewport.addEventListener('resize',resize);
 resize();
-function loop(){requestAnimationFrame(loop);if(controls.autoRotate&&model)pivot.rotateY(0.0035);controls.update();renderer.render(scene,camera);}
+function loop(){requestAnimationFrame(loop);if(controls.autoRotate&&model)pivot.rotateOnWorldAxis(_YUP,0.0035);controls.update();renderer.render(scene,camera);}
 loop();
 
 function disposeModel(){
   if(model){pivot.remove(model);model.traverse(o=>{if(o.geometry)o.geometry.dispose();});model=null;}
-  if(grid){scene.remove(grid);grid.geometry.dispose();grid.material.dispose();grid=null;}
+  if(grid){pivot.remove(grid);grid.geometry.dispose();grid.material.dispose();grid=null;}
 }
 function setModel(obj,file){
   disposeModel();
@@ -271,7 +271,7 @@ function setModel(obj,file){
   model.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
   const maxD=Math.max(size.x,size.y,size.z)||1;
   grid=new THREE.GridHelper(maxD*4,20,0x39404d,0x1e232b);
-  grid.position.y=0.001;scene.add(grid);
+  grid.position.y=0.001-size.y/2;pivot.add(grid);
   shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
   const r=Math.max(maxD/2,size.y/2)*1.15;
   controls.target.set(0,size.y/2,0);
