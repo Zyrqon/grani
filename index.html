@@ -4,8 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="theme-color" content="#0b0d10">
-<title>MeshOk — просмотр 3D-моделей</title>
-<meta name="description" content="MeshOk — просмотрщик 3D-моделей в браузере: STL, OBJ, PLY, GLB/GLTF. Вращение, каркас, замеры, скриншот, шеринг и загрузка по ссылке со сроком хранения.">
+<title>Grani — просмотр 3D-моделей</title>
+<meta name="description" content="Grani — просмотрщик 3D-моделей в браузере: STL, OBJ, PLY, GLB/GLTF. Вращение, каркас, замеры, скриншот, шеринг и загрузка по ссылке со сроком хранения.">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧊</text></svg>">
 <style>
 :root{--bg:#0b0d10;--card:rgba(22,26,32,.82);--card2:rgba(34,40,49,.9);--line:rgba(255,255,255,.08);--text:#eef2f7;--dim:#8d97a5;--accent:#6ea8ff}
@@ -118,7 +118,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMac
 <div id="drop">
   <div class="card">
     <div class="cube"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
-    <h1>MeshOk</h1>
+    <h1>Grani</h1>
     <p>Перетащи модель на страницу или открой файл. Крутится мышью или пальцем, ничего не установливать не нужно.</p>
     <div class="chips"><span>STL</span><span>OBJ</span><span>PLY</span><span>GLB</span><span>GLTF</span></div>
     <div class="row">
@@ -129,7 +129,7 @@ body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMac
   </div>
 </div>
 
-<div id="head" hidden><span class="dot"></span>MeshOk</div>
+<div id="head" hidden><span class="dot"></span>Grani</div>
 
 <div id="bar" hidden>
   <button id="bOpen" title="Открыть файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Открыть</span></button>
@@ -378,7 +378,7 @@ addEventListener('dragover',e=>{e.preventDefault();dropEl.classList.add('hot');}
 addEventListener('dragleave',e=>{e.preventDefault();dropEl.classList.remove('hot');});
 addEventListener('drop',e=>{e.preventDefault();dropEl.classList.remove('hot');const f=e.dataTransfer.files&&e.dataTransfer.files[0];if(f)loadFile(f);});
 
-// ---------- MeshOk: шеринг и загрузка ----------
+// ---------- Grani: шеринг и загрузка ----------
 const API='https://meshok.497c51aab268e25d4d56.workers.dev';
 let curFile=null,curUpload=null;
 const saveLink=a=>{a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);};
@@ -392,7 +392,7 @@ $('bShare').onclick=async()=>{
 };
 $('bMail').onclick=()=>{
   const link=curUpload?curUpload.url:(API||location.origin)+'/';
-  const sub='3D-модель: '+(curFile?curFile.name:'MeshOk');
+  const sub='3D-модель: '+(curFile?curFile.name:'Grani');
   let body='Смотри модель тут: '+link;
   if(curUpload)body+=' (ссылка работает до '+new Date(curUpload.expires).toLocaleString('ru-RU')+')';
   location.href='mailto:?subject='+encodeURIComponent(sub)+'&body='+encodeURIComponent(body);
