@@ -1,0 +1,476 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0b0d10">
+<title>MeshOk — просмотр 3D-моделей</title>
+<meta name="description" content="MeshOk — просмотрщик 3D-моделей в браузере: STL, OBJ, PLY, GLB/GLTF. Вращение, каркас, замеры, скриншот, шеринг и загрузка по ссылке со сроком хранения.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧊</text></svg>">
+<style>
+:root{--bg:#0b0d10;--card:rgba(22,26,32,.82);--card2:rgba(34,40,49,.9);--line:rgba(255,255,255,.08);--text:#eef2f7;--dim:#8d97a5;--accent:#6ea8ff}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;overflow:hidden;overscroll-behavior:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#view{position:fixed;inset:0}
+#view canvas{display:block;touch-action:none}
+
+/* фон стартового экрана */
+#drop{position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:0;padding:24px;text-align:center;transition:background .25s}
+#drop::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(600px 300px at 50% 30%,rgba(110,168,255,.14),transparent 70%),
+  radial-gradient(400px 260px at 70% 75%,rgba(140,110,255,.08),transparent 70%)}
+#drop.hot{background:rgba(110,168,255,.07)}
+#drop>*{position:relative}
+#drop .card{display:flex;flex-direction:column;align-items:center;gap:14px;padding:38px 40px;border:1px solid var(--line);border-radius:24px;background:var(--card);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 24px 60px rgba(0,0,0,.45)}
+#drop .cube{width:64px;height:64px;display:grid;place-items:center;border-radius:18px;background:linear-gradient(160deg,rgba(110,168,255,.25),rgba(110,168,255,.05));border:1px solid rgba(110,168,255,.3)}
+#drop .cube svg{width:34px;height:34px;stroke:var(--accent)}
+#drop h1{font-size:24px;font-weight:700;letter-spacing:.2px}
+#drop p{color:var(--dim);max-width:400px;font-size:14.5px}
+.chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center}
+.chips span{font-size:12px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:3px 10px;background:rgba(255,255,255,.03)}
+#drop .row{display:flex;gap:10px;flex-wrap:wrap;justify-content:center;margin-top:2px}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:none;border-radius:12px;padding:11px 20px;font-size:14.5px;font-weight:600;cursor:pointer;transition:transform .12s,filter .12s}
+.btn.ghost{background:var(--card2);color:var(--text);border:1px solid var(--line)}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{transform:scale(.97)}
+#drop .note{color:var(--dim);font-size:12.5px}
+
+/* шапка */
+#head{position:fixed;top:14px;left:16px;z-index:10;display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13.5px;font-weight:600;pointer-events:none}
+#head .dot{width:8px;height:8px;border-radius:99px;background:var(--accent);box-shadow:0 0 10px rgba(110,168,255,.8)}
+
+/* тулбар */
+#bar{position:fixed;top:12px;left:50%;transform:translateX(-50%);display:flex;gap:2px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:5px;z-index:10;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 32px rgba(0,0,0,.35);max-width:calc(100vw - 16px)}
+#bar button{display:inline-flex;align-items:center;gap:7px;background:transparent;color:var(--dim);border:none;border-radius:10px;padding:8px 12px;font-size:13.5px;cursor:pointer;white-space:nowrap;transition:color .12s,background .12s}
+#bar button svg{width:16px;height:16px;flex:none}
+#bar button:hover{color:var(--text);background:rgba(255,255,255,.06)}
+#bar button.on{color:var(--accent);background:rgba(110,168,255,.14)}
+
+/* инфо-панель */
+#info{position:fixed;left:14px;bottom:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:13px 15px;z-index:10;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);box-shadow:0 12px 32px rgba(0,0,0,.35);min-width:230px;max-width:calc(100vw - 28px)}
+#info .fname{font-weight:600;margin-bottom:7px;max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px}
+#info table{border-collapse:collapse;width:100%}
+#info td{padding:2px 0;font-size:13px}
+#info td:first-child{color:var(--dim);padding-right:16px}
+#infoHead{display:flex;align-items:center;gap:10px;cursor:pointer;margin-bottom:7px}
+#infoHead .fname{margin-bottom:0}
+#info.collapsed #infoHead{margin-bottom:0}
+#info .dims{color:var(--dim);font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#info .chev{width:15px;height:15px;flex:none;stroke:var(--dim);transition:transform .25s;margin-left:auto}
+#info.collapsed #infoBody{display:none}
+#info.collapsed .chev{transform:rotate(-180deg)}
+
+
+#upModal{position:fixed;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;background:rgba(11,13,16,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+#upCard{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:300px;max-width:calc(100vw - 32px);box-shadow:0 24px 60px rgba(0,0,0,.5)}
+#upTitle{font-weight:700;margin-bottom:12px}
+#upTtls{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+#upTtls span{font-size:13px;color:var(--dim);border:1px solid var(--line);border-radius:99px;padding:6px 12px;cursor:pointer;background:rgba(255,255,255,.03)}
+#upTtls span.on{color:var(--accent);border-color:rgba(110,168,255,.5);background:rgba(110,168,255,.12)}
+#upCustomRow{display:flex;align-items:center;gap:8px;color:var(--dim);font-size:13px;margin-bottom:14px}
+#upDays{width:70px;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;color:var(--text);padding:7px 10px;font-size:13.5px;outline:none}
+.upRow{display:flex;gap:10px}
+#upResult{margin-top:2px}
+#upLink{width:100%;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:10px;color:var(--accent);padding:9px 12px;font-size:13px;margin-bottom:10px;outline:none}
+#toast{position:fixed;top:64px;left:50%;transform:translateX(-50%);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 16px;z-index:20;display:none;max-width:calc(100vw - 24px);text-align:center;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+#toast.err{color:#ff7a7a;border-color:rgba(255,107,107,.4)}
+#busy{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(11,13,16,.55);z-index:30;backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+#busy .spin{width:34px;height:34px;border-radius:50%;border:3px solid rgba(255,255,255,.15);border-top-color:var(--accent);animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media (max-width:640px){
+  #bar{top:auto;bottom:calc(10px + env(safe-area-inset-bottom));left:50%;max-width:calc(100vw - 8px);flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:4px;gap:1px}
+  #bar::-webkit-scrollbar{display:none}
+  #bar button span.lbl{display:none}
+  #bar button{padding:10px 12px;min-width:44px;min-height:44px}
+  #bar button svg{width:19px;height:19px}
+  #info{left:8px;right:8px;bottom:calc(74px + env(safe-area-inset-bottom));padding:10px 12px;min-width:0;max-width:none}
+  #infoBody{max-height:34vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
+  #info td{font-size:12.5px;padding:3px 0}
+  #info .fname{max-width:46vw}
+  #head{top:10px;left:12px;font-size:12.5px}
+  #drop{padding:16px}
+  #drop .card{padding:24px 18px;gap:11px;max-width:calc(100vw - 32px);width:100%}
+  #drop h1{font-size:21px}
+  #drop p{font-size:13.5px}
+  #drop .btn{padding:12px 22px;min-height:44px}
+  #toast{top:56px;font-size:13.5px}
+}
+
+[hidden]{display:none!important}
+/* мои загрузки */
+#mineModal{position:fixed;inset:0;z-index:25;display:flex;align-items:center;justify-content:center;background:rgba(11,13,16,.6);backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+#mineCard{background:var(--card2);border:1px solid var(--line);border-radius:18px;padding:20px;min-width:300px;max-width:calc(100vw - 32px);max-height:70vh;overflow:auto;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+#mineTitle{font-weight:700;margin-bottom:12px}
+.mineRow{display:flex;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.mineRow:first-child{border-top:none}
+.mineName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px}
+.mineLeft{font-size:12.5px;color:var(--dim);flex:none}
+.mineRow .btn{padding:6px 10px;font-size:12.5px}
+.mineEmpty{color:var(--dim);font-size:13.5px;padding:8px 0}
+#mineCloseRow{margin-top:14px;display:flex;justify-content:flex-end}
+</style>
+</head>
+<body>
+<div id="view"></div>
+
+<div id="drop">
+  <div class="card">
+    <div class="cube"><svg viewBox="0 0 24 24" fill="none" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.3 7l8.7 5 8.7-5"/><path d="M12 22V12"/></svg></div>
+    <h1>MeshOk</h1>
+    <p>Перетащи модель на страницу или открой файл. Крутится мышью или пальцем, ничего не установливать не нужно.</p>
+    <div class="chips"><span>STL</span><span>OBJ</span><span>PLY</span><span>GLB</span><span>GLTF</span></div>
+    <div class="row">
+      <button class="btn" id="openBtn">Открыть модель</button>
+      <button class="btn ghost" id="demoBtn">Пример</button>
+    </div>
+    <div class="note">Всё считается прямо в браузере, файлы никуда не уходят</div>
+  </div>
+</div>
+
+<div id="head" hidden><span class="dot"></span>MeshOk</div>
+
+<div id="bar" hidden>
+  <button id="bOpen" title="Открыть файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Открыть</span></button>
+  <button id="bWire" title="Каркас"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12L3 7M12 12v10"/></svg><span class="lbl">Каркас</span></button>
+  <button id="bSpin" title="Автоповорот"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v5h-5"/></svg><span class="lbl">Вращение</span></button>
+  <button id="bGrid" title="Сетка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M3 7h18M3 17h18M12 3v18M7 3v18M17 3v18"/></svg><span class="lbl">Сетка</span></button>
+  <button id="bReset" title="Сброс вида"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="lbl">Сброс вида</span></button>
+  <button id="bShot" title="Скриншот"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="lbl">Скриншот</span></button>
+  <button id="bDown" title="Скачать файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 3v12"/></svg><span class="lbl">Скачать</span></button>
+  <button id="bShare" title="Поделиться файлом"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 10.5l6.8-4"/><path d="M8.6 13.5l6.8 4"/></svg><span class="lbl">Поделиться</span></button>
+  <button id="bMail" title="Отправить по почте"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 6 10-6"/></svg><span class="lbl">По почте</span></button>
+  <button id="bCopy" title="Скопировать файл для слайсера"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg><span class="lbl">В слайсер</span></button>
+  <button id="bUp" title="Загрузить на сервер по ссылке"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 8l5-5 5 5"/><path d="M12 3v12"/></svg><span class="lbl">Загрузить</span></button>
+  <button id="bMine" title="Мои загрузки"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M8 13h5M8 9h8"/></svg><span class="lbl">Мои</span></button>
+</div>
+
+<div id="info" hidden>
+  <div id="infoHead">
+    <span class="fname" id="iName"></span>
+    <span class="dims" id="iDim"></span>
+    <svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+  </div>
+  <div id="infoBody">
+  <table>
+    <tr><td>Габариты</td><td id="iSize">—</td></tr>
+    <tr><td>Треугольники</td><td id="iTris">—</td></tr>
+    <tr><td>Вершины</td><td id="iVerts">—</td></tr>
+    <tr><td>Объём</td><td id="iVol">—</td></tr>
+    <tr><td>Файл</td><td id="iFsize">—</td></tr>
+  </table>
+  </div>
+</div>
+
+<div id="upModal" hidden>
+  <div id="upCard">
+    <div id="upTitle">Загрузить на сервер</div>
+    <div id="upTtls"></div>
+    <div id="upCustomRow"><input id="upDays" type="number" min="1" max="365" placeholder="напр. 90"> <span>дней</span></div>
+    <div class="upRow" id="upGoRow"><button class="btn" id="upGo">Загрузить</button><button class="btn ghost" id="upClose">Отмена</button></div>
+    <div id="upResult" hidden>
+      <input id="upLink" readonly>
+      <div class="upRow"><button class="btn" id="upCopy">Скопировать ссылку</button><button class="btn ghost" id="upClose2">Готово</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="mineModal" hidden>
+  <div id="mineCard">
+    <div id="mineTitle">Мои загрузки</div>
+    <div id="mineList"></div>
+    <div id="mineCloseRow"><button class="btn ghost" id="mineClose">Закрыть</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<div id="busy"><div class="spin"></div></div>
+<input type="file" id="fileInput" accept=".stl,.obj,.ply,.glb,.gltf" hidden>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {STLLoader} from 'three/addons/loaders/STLLoader.js';
+import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
+import {PLYLoader} from 'three/addons/loaders/PLYLoader.js';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+
+const $=id=>document.getElementById(id);
+const dropEl=$('drop'),barEl=$('bar'),infoEl=$('info'),headEl=$('head'),toastEl=$('toast'),busyEl=$('busy');
+const fmt=n=>n>=1e6?(n/1e6).toFixed(2)+' млн':n>=1e3?(n/1e3).toFixed(1)+' тыс.':String(n);
+const fmt3=n=>n>=1000?n.toLocaleString('ru-RU',{maximumFractionDigits:0}):n.toLocaleString('ru-RU',{maximumFractionDigits:2});
+let toastTimer;
+function toast(msg,isErr){if(!msg){toastEl.style.display='none';return;}toastEl.textContent=msg;toastEl.className=isErr?'err':'';toastEl.style.display='block';clearTimeout(toastTimer);toastTimer=setTimeout(()=>toastEl.style.display='none',4000);}
+function busy(on){busyEl.style.display=on?'flex':'none';}
+
+const scene=new THREE.Scene();
+scene.background=new THREE.Color(0x0b0d10);
+scene.fog=new THREE.Fog(0x0b0d10,0,0);
+const camera=new THREE.PerspectiveCamera(50,1,0.01,10000);
+camera.position.set(120,90,160);
+const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+renderer.setPixelRatio(Math.min(devicePixelRatio,innerWidth<640?1.5:2));
+renderer.shadowMap.enabled=true;
+renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.toneMapping=THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure=1.1;
+$('view').appendChild(renderer.domElement);
+const controls=new OrbitControls(camera,renderer.domElement);
+controls.enableDamping=true;controls.dampingFactor=0.12;controls.zoomSpeed=15.0;controls.panSpeed=1.2;
+controls.mouseButtons={LEFT:-1,MIDDLE:THREE.MOUSE.DOLLY,RIGHT:THREE.MOUSE.PAN};
+controls.touches={ONE:-1,TWO:THREE.TOUCH.DOLLY_PAN};
+controls.autoRotateSpeed=2.0;
+
+// трекбол в стиле Blender: модель вращается свободно, камера на месте
+const pivot=new THREE.Group();scene.add(pivot);
+const _right=new THREE.Vector3(),_up=new THREE.Vector3(),_q=new THREE.Quaternion();
+const cv=renderer.domElement,active=new Map();let tPts=null;
+cv.addEventListener('pointerdown',e=>{active.set(e.pointerId,{x:e.clientX,y:e.clientY});if(active.size===1&&model&&(e.pointerType!=='mouse'||e.button===0)){tPts={id:e.pointerId,x:e.clientX,y:e.clientY};try{cv.setPointerCapture(e.pointerId);}catch(_){}}else tPts=null;});
+cv.addEventListener('pointermove',e=>{if(!tPts||e.pointerId!==tPts.id||!model)return;const p=active.get(e.pointerId);const dx=e.clientX-tPts.x,dy=e.clientY-tPts.y;tPts.x=e.clientX;tPts.y=e.clientY;if(p){p.x=e.clientX;p.y=e.clientY;}const d=Math.hypot(dx,dy);if(!d)return;_up.setFromMatrixColumn(camera.matrixWorld,1).multiplyScalar(dx);_right.setFromMatrixColumn(camera.matrixWorld,0).multiplyScalar(dy);_up.add(_right);_up.normalize();_q.setFromAxisAngle(_up,d/cv.clientHeight*6.283*2);pivot.quaternion.premultiply(_q);});
+const endT=e=>{active.delete(e.pointerId);if(tPts&&e.pointerId===tPts.id){tPts=null;try{cv.releasePointerCapture(e.pointerId);}catch(_){}}};
+cv.addEventListener('pointerup',endT);cv.addEventListener('pointercancel',endT);
+
+scene.add(new THREE.HemisphereLight(0xbfd4ff,0x2a2e36,0.9));
+const d1=new THREE.DirectionalLight(0xffffff,1.8);
+d1.position.set(1,1.6,0.8);d1.castShadow=true;
+d1.shadow.mapSize.set(2048,2048);d1.shadow.bias=-0.0004;
+scene.add(d1);
+const d2=new THREE.DirectionalLight(0x8fb5ff,0.5);d2.position.set(-1,0.4,-0.6);scene.add(d2);
+const shadowPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.ShadowMaterial({opacity:0.28}));
+shadowPlane.rotation.x=-Math.PI/2;shadowPlane.receiveShadow=true;scene.add(shadowPlane);
+
+let grid=null,model=null,gridOn=true;
+const baseMaterial=new THREE.MeshStandardMaterial({color:0x6fa8ff,metalness:0.2,roughness:0.45,side:THREE.DoubleSide});
+
+function resize(){const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);}
+addEventListener('resize',resize);
+addEventListener('orientationchange',()=>setTimeout(resize,250));
+if(window.visualViewport)visualViewport.addEventListener('resize',resize);
+resize();
+function loop(){requestAnimationFrame(loop);if(controls.autoRotate&&model)pivot.rotateY(0.0035);controls.update();renderer.render(scene,camera);}
+loop();
+
+function disposeModel(){
+  if(model){pivot.remove(model);model.traverse(o=>{if(o.geometry)o.geometry.dispose();});model=null;}
+  if(grid){pivot.remove(grid);grid.geometry.dispose();grid.material.dispose();grid=null;}
+}
+function setModel(obj,file){
+  disposeModel();
+  const box=new THREE.Box3().setFromObject(obj);
+  const size=box.getSize(new THREE.Vector3());
+  const center=box.getCenter(new THREE.Vector3());
+  obj.position.set(-center.x,-center.y,-center.z);
+  pivot.position.set(0,size.y/2,0);
+  pivot.quaternion.identity();
+  obj.updateMatrixWorld(true);
+  model=obj;pivot.add(obj);
+  model.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
+  const maxD=Math.max(size.x,size.y,size.z)||1;
+  grid=new THREE.GridHelper(maxD*4,20,0x39404d,0x1e232b);
+  grid.position.y=0.001-size.y/2;pivot.add(grid);
+  shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
+  const r=Math.max(maxD/2,size.y/2)*1.15;
+  controls.target.set(0,size.y/2,0);
+  camera.near=r/1000;camera.far=r*100;camera.updateProjectionMatrix();
+  camera.position.set(r*1.15,r*0.95,r*1.6);
+  controls.maxDistance=r*50;controls.minDistance=r/100;
+  scene.fog.near=r*4;scene.fog.far=r*30;
+  const s=maxD*2.2;
+  d1.shadow.camera.left=-s;d1.shadow.camera.right=s;d1.shadow.camera.top=s;d1.shadow.camera.bottom=-s;
+  d1.shadow.camera.far=r*10;d1.shadow.camera.updateProjectionMatrix();
+  showStats(file,size);
+  dropEl.style.display='none';barEl.hidden=false;infoEl.hidden=false;headEl.hidden=false;
+  $('bSpin').classList.remove('on');$('bWire').classList.remove('on');
+  controls.autoRotate=false;
+}
+function showStats(file,size){
+  let tris=0,verts=0;
+  model.traverse(o=>{
+    if(o.isMesh&&o.geometry&&o.geometry.attributes.position){
+      const g=o.geometry;
+      verts+=g.attributes.position.count;
+      tris+=g.index?g.index.count/3:g.attributes.position.count/3;
+    }
+  });
+  $('iName').textContent=file?file.name:'Пример';
+  $('iSize').textContent=fmt3(size.x)+' × '+fmt3(size.y)+' × '+fmt3(size.z)+' мм';
+  $('iDim').textContent=$('iSize').textContent;
+  $('iTris').textContent=fmt(Math.round(tris));
+  $('iVerts').textContent=fmt(verts);
+  const mb=file?file.size/1024/1024:0;
+  $('iFsize').textContent=file?(mb<1?(file.size/1024).toLocaleString('ru-RU',{maximumFractionDigits:1})+' КБ':mb.toLocaleString('ru-RU',{maximumFractionDigits:2})+' МБ'):'—';
+  const vol=computeVolume();
+  $('iVol').textContent=vol===null?'— (незамкнутая)':'≈ '+fmt3(vol/1000)+' см³';
+}
+function computeVolume(){
+  let total=0;
+  model.traverse(o=>{
+    if(o.isMesh&&o.geometry&&o.geometry.attributes.position){
+      const g=o.geometry,pos=g.attributes.position,idx=g.index;
+      const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),cr=new THREE.Vector3();
+      const count=idx?idx.count:pos.count;
+      for(let i=0;i<count;i+=3){
+        const i0=idx?idx.getX(i):i,i1=idx?idx.getX(i+1):i+1,i2=idx?idx.getX(i+2):i+2;
+        a.fromBufferAttribute(pos,i0).applyMatrix4(o.matrixWorld);
+        b.fromBufferAttribute(pos,i1).applyMatrix4(o.matrixWorld);
+        c.fromBufferAttribute(pos,i2).applyMatrix4(o.matrixWorld);
+        cr.copy(b).cross(c);
+        total+=a.dot(cr)/6;
+      }
+    }
+  });
+  total=Math.abs(total);
+  return total>0?total:null;
+}
+function loadFile(file){
+  const ext=(file.name.split('.').pop()||'').toLowerCase();
+  if(!['stl','obj','ply','glb','gltf'].includes(ext)){toast('Не поддерживаю формат .'+ext,true);return;}
+  curFile=file;curUpload=null;
+  busy(true);toast('');
+  const url=URL.createObjectURL(file);
+  const done=()=>{URL.revokeObjectURL(url);busy(false);};
+  const fail=e=>{done();console.error(e);toast('Не удалось прочитать файл. Если это OBJ с внешним .mtl, открой сам OBJ.',true);};
+  try{
+    if(ext==='stl'||ext==='ply'){
+      const L=ext==='stl'?new STLLoader():new PLYLoader();
+      L.load(url,geo=>{try{geo.computeVertexNormals();const m=new THREE.Mesh(geo,baseMaterial.clone());setModel(m,file);}catch(e){fail(e);}done();},undefined,fail);
+    }else if(ext==='obj'){
+      new OBJLoader().load(url,obj=>{try{obj.traverse(o=>{if(o.isMesh)o.material=baseMaterial;});setModel(obj,file);}catch(e){fail(e);}done();},undefined,fail);
+    }else{
+      new GLTFLoader().load(url,g=>{try{setModel(g.scene,file);}catch(e){fail(e);}done();},undefined,fail);
+    }
+  }catch(e){fail(e);}
+}
+function demo(){
+  curFile=null;curUpload=null;
+  const g=new THREE.TorusKnotGeometry(22,7,220,32);
+  const m=new THREE.Mesh(g,baseMaterial.clone());
+  setModel(m,null);
+}
+
+const fi=$('fileInput');
+$('openBtn').onclick=()=>fi.click();
+$('bOpen').onclick=()=>fi.click();
+fi.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);fi.value='';};
+$('demoBtn').onclick=demo;
+$('bWire').onclick=e=>{const on=e.currentTarget.classList.toggle('on');model&&model.traverse(o=>{if(o.isMesh)o.material.wireframe=on;});};
+$('bSpin').onclick=e=>{controls.autoRotate=e.currentTarget.classList.toggle('on');};
+$('bGrid').onclick=e=>{gridOn=e.currentTarget.classList.toggle('on');grid&&(grid.visible=gridOn);};
+$('bGrid').classList.add('on');
+let infoCollapsed=innerWidth<640;
+function applyInfo(){infoEl.classList.toggle('collapsed',infoCollapsed);}
+;
+$('infoHead').addEventListener('click',()=>{infoCollapsed=!infoCollapsed;applyInfo();});
+applyInfo();
+$('bReset').onclick=()=>{const b=new THREE.Box3().setFromObject(model);const size=b.getSize(new THREE.Vector3());const c=b.getCenter(new THREE.Vector3());const r=Math.max(size.x,size.y,size.z)*0.7;controls.target.copy(c);camera.position.set(c.x+r*1.15,c.y+r*0.95,c.z+r*1.6);pivot.quaternion.identity();};
+$('bShot').onclick=()=>{
+  renderer.render(scene,camera);
+  const a=document.createElement('a');
+  a.download=(($('iName').textContent||'model').replace(/\.[^.]+$/,'')||'model')+'.png';
+  a.href=renderer.domElement.toDataURL('image/png');a.click();
+  toast('Скриншот сохранён');
+};
+addEventListener('dragover',e=>{e.preventDefault();dropEl.classList.add('hot');});
+addEventListener('dragleave',e=>{e.preventDefault();dropEl.classList.remove('hot');});
+addEventListener('drop',e=>{e.preventDefault();dropEl.classList.remove('hot');const f=e.dataTransfer.files&&e.dataTransfer.files[0];if(f)loadFile(f);});
+
+// ---------- MeshOk: шеринг и загрузка ----------
+const API='https://meshok.497c51aab268e25d4d56.workers.dev';
+let curFile=null,curUpload=null;
+const saveLink=a=>{a.click();setTimeout(()=>URL.revokeObjectURL(a.href),3000);};
+const dl=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(curFile);a.download=curFile.name;saveLink(a);};
+
+$('bDown').onclick=()=>{if(!curFile){toast('У примера нет файла, скачивать нечего',true);return;}dl();toast('Скачивается '+curFile.name);};
+$('bShare').onclick=async()=>{
+  if(!curFile){toast('Примером нечем поделиться, открой файл',true);return;}
+  try{if(navigator.canShare&&navigator.canShare({files:[curFile]})){await navigator.share({files:[curFile],title:curFile.name});return;}}catch(e){if(e&&e.name==='AbortError')return;}
+  dl();toast('Системное «Поделиться» тут недоступно, скачал файл вместо него');
+};
+$('bMail').onclick=()=>{
+  const link=curUpload?curUpload.url:(API||location.origin)+'/';
+  const sub='3D-модель: '+(curFile?curFile.name:'MeshOk');
+  let body='Смотри модель тут: '+link;
+  if(curUpload)body+=' (ссылка работает до '+new Date(curUpload.expires).toLocaleString('ru-RU')+')';
+  location.href='mailto:?subject='+encodeURIComponent(sub)+'&body='+encodeURIComponent(body);
+};
+$('bCopy').onclick=async()=>{
+  if(!curFile){toast('Пример не скопировать, открой файл',true);return;}
+  try{await navigator.clipboard.write([new ClipboardItem({[curFile.type||'application/octet-stream']:curFile})]);toast('Файл в буфере, вставь в слайсер (Ctrl+V)');}
+  catch(e){toast('Браузер не дал скопировать файл, скачай его',true);}
+};
+$('bUp').onclick=()=>{if(!curFile){toast('Пример загрузить нельзя, открой свой файл',true);return;}showUp();};
+
+const TTLS=[[3600,'1 час'],[86400,'1 сутки'],[7*86400,'7 дней'],[30*86400,'30 дней']];
+let upTtl=7*86400;
+function showUp(){$('upResult').hidden=true;$('upGoRow').hidden=false;$('upCustomRow').style.display='flex';renderTtls();$('upModal').hidden=false;}
+function renderTtls(){const c=$('upTtls');c.innerHTML='';for(const[s,l]of TTLS){const el=document.createElement('span');el.textContent=l;if(s===upTtl&&!$('upDays').value)el.classList.add('on');el.onclick=()=>{upTtl=s;$('upDays').value='';renderTtls();};c.appendChild(el);}}
+$('upClose').onclick=$('upClose2').onclick=()=>{$('upModal').hidden=true;};
+$('upDays').oninput=e=>{const v=parseInt(e.target.value,10);if(v>=1&&v<=365){upTtl=v*86400;renderTtls();}};
+$('upGo').onclick=async()=>{
+  if(!curFile)return;$('upModal').hidden=true;busy(true);
+  try{
+    const r=await fetch(API+'/api/upload',{method:'POST',headers:{'x-name':encodeURIComponent(curFile.name),'x-ttl':String(upTtl),'content-type':curFile.type||'application/octet-stream'},body:curFile});
+    const j=await r.json();
+    if(!r.ok){busy(false);toast(j.error||'Не удалось загрузить',true);return;}
+    curUpload={id:j.id,url:j.url,expires:j.expires,name:curFile&&curFile.name||'модель'};saveMine();
+    $('upLink').value=j.url;$('upGoRow').hidden=true;$('upCustomRow').style.display='none';$('upResult').hidden=false;$('upModal').hidden=false;
+    try{await navigator.clipboard.writeText(j.url);}catch(e){}
+    busy(false);toast('Ссылка скопирована, файл удалится сам');
+  }catch(e){busy(false);toast('Не удалось загрузить: '+e.message,true);}
+};
+$('upCopy').onclick=()=>{navigator.clipboard.writeText($('upLink').value).then(()=>toast('Ссылка скопирована'),()=>{});};
+
+// ---------- мои загрузки ----------
+const MINE_KEY='meshok.mine';
+const nowS=()=>Math.floor(Date.now()/1000);
+const getMine=()=>{try{const v=JSON.parse(localStorage.getItem(MINE_KEY)||'[]');return Array.isArray(v)?v.filter(x=>x&&x.id&&x.url&&x.expires):[]}catch(e){return[]}};
+const setMine=v=>{try{localStorage.setItem(MINE_KEY,JSON.stringify(v))}catch(e){}};
+function leftStr(exp){let s=exp-nowS();if(s<=0)return 'истекает';const d=Math.floor(s/86400),h=Math.floor(s%86400/3600),m=Math.floor(s%3600/60);return d?d+' д '+h+' ч':h?h+' ч '+m+' мин':(m?m+' мин':'меньше минуты');}
+function saveMine(){if(!curUpload)return;const m=getMine().filter(x=>x.id!==curUpload.id);m.push(curUpload);m.sort((a,b)=>a.expires-b.expires);setMine(m);}
+function renderMine(){
+  const c=$('mineList');c.innerHTML='';
+  let m=getMine().filter(x=>x.expires>nowS());setMine(m);
+  if(!m.length){c.innerHTML='<div class="mineEmpty">Пока пусто. Загрузи модель, и её ссылка появится здесь.</div>';return;}
+  for(const x of m){
+    const row=document.createElement('div');row.className='mineRow';
+    const nm=document.createElement('span');nm.className='mineName';nm.textContent=x.name||'модель';nm.title=x.url;row.appendChild(nm);
+    const lf=document.createElement('span');lf.className='mineLeft';lf.textContent=leftStr(x.expires);lf.title='работает до '+new Date(x.expires*1000).toLocaleString('ru-RU');row.appendChild(lf);
+    const bOpen=document.createElement('button');bOpen.className='btn ghost';bOpen.textContent='Открыть';bOpen.onclick=()=>window.open(x.url,'_blank');row.appendChild(bOpen);
+    const bCopy=document.createElement('button');bCopy.className='btn ghost';bCopy.textContent='Ссылка';bCopy.onclick=()=>navigator.clipboard.writeText(x.url).then(()=>toast('Ссылка скопирована'),()=>{});row.appendChild(bCopy);
+    const bDel=document.createElement('button');bDel.className='btn ghost';bDel.textContent='Удалить';bDel.onclick=async()=>{
+      bDel.disabled=true;
+      try{const r=await fetch(API+'/api/file/'+encodeURIComponent(x.id),{method:'DELETE'});if(!r.ok&&r.status!==404){toast('Не удалось удалить',true);bDel.disabled=false;return;}}catch(e){toast('Не удалось удалить',true);bDel.disabled=false;return;}
+      setMine(getMine().filter(y=>y.id!==x.id));renderMine();toast('Удалил, ссылка больше не работает');
+    };
+    row.appendChild(bDel);
+    c.appendChild(row);
+  }
+}
+$('bMine').onclick=()=>{renderMine();$('mineModal').hidden=false;};
+$('mineClose').onclick=()=>{$('mineModal').hidden=true;};
+setInterval(()=>{if(!$('mineModal').hidden)renderMine();},30000);
+
+// ---------- модель по ссылке /?u=id ----------
+(async()=>{
+  const u=new URLSearchParams(location.search).get('u');
+  if(!u)return;
+  busy(true);
+  try{
+    const r=await fetch(API+'/api/file/'+encodeURIComponent(u));
+    if(!r.ok){busy(false);toast('Модель по ссылке не найдена, срок хранения мог истечь',true);return;}
+    const nm=decodeURIComponent(r.headers.get('x-file-name')||'model.stl');
+    const buf=await r.arrayBuffer();
+    busy(false);
+    loadFile(new File([buf],nm,{type:r.headers.get('content-type')||'application/octet-stream'}));
+  }catch(e){busy(false);toast('Не удалось загрузить модель по ссылке',true);}
+})();
+
+// авто-демо для проверок: /?demo=1
+if(new URLSearchParams(location.search).has('demo'))demo();
+</script>
+</body>
+</html>
