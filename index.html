@@ -245,6 +245,7 @@ shadowPlane.rotation.x=-Math.PI/2;shadowPlane.receiveShadow=true;scene.add(shado
 
 let grid=null,model=null,gridOn=true;
 const baseMaterial=new THREE.MeshStandardMaterial({color:0x6fa8ff,metalness:0.2,roughness:0.45,side:THREE.DoubleSide});
+function radialTex(){const c=document.createElement('canvas');c.width=c.height=256;const g=c.getContext('2d');const r=g.createRadialGradient(128,128,0,128,128,128);r.addColorStop(0,'rgba(110,168,255,0.16)');r.addColorStop(0.55,'rgba(110,168,255,0.06)');r.addColorStop(1,'rgba(110,168,255,0)');g.fillStyle=r;g.fillRect(0,0,256,256);return new THREE.CanvasTexture(c);}
 
 function resize(){const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);}
 addEventListener('resize',resize);
@@ -256,7 +257,7 @@ loop();
 
 function disposeModel(){
   if(model){pivot.remove(model);model.traverse(o=>{if(o.geometry)o.geometry.dispose();});model=null;}
-  if(grid){pivot.remove(grid);grid.geometry.dispose();grid.material.dispose();grid=null;}
+  if(grid){pivot.remove(grid);grid.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{m.map&&m.map.dispose();m.dispose();});});grid=null;}
 }
 function setModel(obj,file){
   disposeModel();
@@ -270,7 +271,17 @@ function setModel(obj,file){
   model=obj;pivot.add(obj);
   model.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
   const maxD=Math.max(size.x,size.y,size.z)||1;
-  grid=new THREE.GridHelper(maxD*4,20,0x39404d,0x1e232b);
+  const gsz=Math.max(maxD*4,4);
+  grid=new THREE.Group();
+  const gh=new THREE.GridHelper(gsz,20,0x4a5568,0x242c37);
+  gh.material.transparent=true;gh.material.opacity=0.5;gh.material.depthWrite=false;
+  grid.add(gh);
+  const axG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(-gsz/2,0.001,0),new THREE.Vector3(gsz/2,0.001,0),new THREE.Vector3(0,0.001,-gsz/2),new THREE.Vector3(0,0.001,gsz/2)]);
+  grid.add(new THREE.LineSegments(axG,new THREE.LineBasicMaterial({color:0x6ea8ff,transparent:true,opacity:0.85})));
+  const disc=new THREE.Mesh(new THREE.CircleGeometry(gsz*0.42,64),new THREE.MeshBasicMaterial({map:radialTex(),transparent:true,depthWrite:false}));
+  disc.rotation.x=-Math.PI/2;disc.position.y=-0.002;grid.add(disc);
+  const ring=new THREE.Mesh(new THREE.RingGeometry(gsz*0.496,gsz*0.5,96),new THREE.MeshBasicMaterial({color:0x6ea8ff,transparent:true,opacity:0.3,side:THREE.DoubleSide,depthWrite:false}));
+  ring.rotation.x=-Math.PI/2;ring.position.y=0.002;grid.add(ring);
   grid.position.y=0.001-size.y/2;pivot.add(grid);
   shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
   const r=Math.max(maxD/2,size.y/2)*1.15;
