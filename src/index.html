@@ -272,18 +272,18 @@ function setModel(obj,file){
   const maxD=Math.max(size.x,size.y,size.z)||1;
   const gsz=Math.max(maxD*6,6),half=gsz/2,cell=gsz/24;
   grid=new THREE.Group();
-  const BG=new THREE.Color(0x0b0d10),r0=half*0.25,r1=half*0.95;
+  const BG=new THREE.Color(0x0b0d10),r0=half*0.35,r1=half*0.98;
   const colFor=(c,x,z)=>{let t=(Math.hypot(x,z)-r0)/(r1-r0);t=Math.max(0,Math.min(1,t));t=t*t*(3-2*t);return c.clone().lerp(BG,t);};
   const mk=(color,step,op)=>{const pos=[],col=[],c=new THREE.Color(color);
-    for(let i=0;i<=24;i+=step){const p=-half+i*(gsz/24);
+    for(let i=0;i<=36;i+=step){const p=-half+i*(gsz/36);
       const seg=(x1,z1,x2,z2)=>{pos.push([x1,0,z1,x2,0,z2]);col.push(colFor(c,x1,z1),colFor(c,x2,z2));};
       seg(p,-half,p,half);seg(-half,p,half,p);};
     const g=new THREE.BufferGeometry();
     g.setAttribute('position',new THREE.Float32BufferAttribute(pos.flat(),3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(col.flatMap(v=>[v.r,v.g,v.b]),3));
     grid.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:op,depthWrite:false})));};
-  mk(0x2e3947,1,1);
-  mk(0x4a5a70,6,1);
+  mk(0x3b4551,1,1);
+  mk(0x4d5c70,6,1);
   // axis overrides: full-length red X and green Z lines
   (function(){const pos=[],col=[],cx=new THREE.Color(0xcc4a4a),cz=new THREE.Color(0x4f9e4f);
     [[cx,-half,0,half,0],[cz,0,-half,0,half]].forEach(([c,x1,z1,x2,z2])=>{pos.push(x1,0.001,z1,x2,0.001,z2);col.push(colFor(c,x1,z1),colFor(c,x2,z2));});
