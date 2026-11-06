@@ -293,7 +293,7 @@ function setModel(obj,file){
     grid.add(new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,depthWrite:false})));})();
 grid.position.y=0.001-size.y/2;pivot.add(grid);
 shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
-  const r=Math.max(maxD/2,size.y/2)*1.15;
+  const r=Math.max(maxD/2,size.y/2)*2.1;
   controls.target.set(0,size.y/2,0);
   camera.near=r/1000;camera.far=r*100;camera.updateProjectionMatrix();
   camera.position.set(r*1.15,r*0.95,r*1.6);
@@ -386,7 +386,7 @@ function applyInfo(){infoEl.classList.toggle('collapsed',infoCollapsed);}
 ;
 $('infoHead').addEventListener('click',()=>{infoCollapsed=!infoCollapsed;applyInfo();});
 applyInfo();
-$('bReset').onclick=()=>{const b=new THREE.Box3().setFromObject(model);const size=b.getSize(new THREE.Vector3());const c=b.getCenter(new THREE.Vector3());const r=Math.max(size.x,size.y,size.z)*0.7;controls.target.copy(c);camera.position.set(c.x+r*1.15,c.y+r*0.95,c.z+r*1.6);pivot.quaternion.identity();};
+$('bReset').onclick=()=>{const b=new THREE.Box3().setFromObject(model);const size=b.getSize(new THREE.Vector3());const c=b.getCenter(new THREE.Vector3());const r=Math.max(size.x,size.y,size.z)*1.05;controls.target.copy(c);camera.position.set(c.x+r*1.15,c.y+r*0.95,c.z+r*1.6);pivot.quaternion.identity();};
 $('bShot').onclick=()=>{
   renderer.render(scene,camera);
   const a=document.createElement('a');
