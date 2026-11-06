@@ -291,6 +291,7 @@ function setModel(obj,file){
     g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
     g.setAttribute('color',new THREE.Float32BufferAttribute(col.flatMap(v=>[v.r,v.g,v.b]),3));
     grid.add(new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,depthWrite:false})));})();
+grid.position.y=0.001-size.y/2;pivot.add(grid);
 shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
   const r=Math.max(maxD/2,size.y/2)*1.15;
   controls.target.set(0,size.y/2,0);
