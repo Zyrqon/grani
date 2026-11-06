@@ -135,7 +135,6 @@ body{background:var(--bg);color:var(--text);font:15px/1.5 -apple-system,BlinkMac
   <button id="bOpen" title="Открыть файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Открыть</span></button>
   <button id="bWire" title="Каркас"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5v10l-9 5-9-5V7z"/><path d="M12 12l9-5M12 12L3 7M12 12v10"/></svg><span class="lbl">Каркас</span></button>
   <button id="bSpin" title="Автоповорот"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><path d="M21 3v5h-5"/></svg><span class="lbl">Вращение</span></button>
-  <button id="bGrid" title="Сетка"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 12h18M3 7h18M3 17h18M12 3v18M7 3v18M17 3v18"/></svg><span class="lbl">Сетка</span></button>
   <button id="bReset" title="Сброс вида"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="7"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg><span class="lbl">Сброс вида</span></button>
   <button id="bShot" title="Скриншот"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg><span class="lbl">Скриншот</span></button>
   <button id="bDown" title="Скачать файл"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 3v12"/></svg><span class="lbl">Скачать</span></button>
@@ -240,10 +239,9 @@ d1.position.set(1,1.6,0.8);d1.castShadow=true;
 d1.shadow.mapSize.set(2048,2048);d1.shadow.bias=-0.0004;
 scene.add(d1);
 const d2=new THREE.DirectionalLight(0x8fb5ff,0.5);d2.position.set(-1,0.4,-0.6);scene.add(d2);
-const shadowPlane=new THREE.Mesh(new THREE.PlaneGeometry(1,1),new THREE.ShadowMaterial({opacity:0.28}));
-shadowPlane.rotation.x=-Math.PI/2;shadowPlane.receiveShadow=true;scene.add(shadowPlane);
 
-let grid=null,model=null,gridOn=true;
+
+let model=null;
 const baseMaterial=new THREE.MeshStandardMaterial({color:0x6fa8ff,metalness:0.2,roughness:0.45,side:THREE.DoubleSide});
 
 function resize(){const w=innerWidth,h=innerHeight;camera.aspect=w/h;camera.updateProjectionMatrix();renderer.setSize(w,h);}
@@ -256,7 +254,7 @@ loop();
 
 function disposeModel(){
   if(model){pivot.remove(model);model.traverse(o=>{if(o.geometry)o.geometry.dispose();});model=null;}
-  if(grid){pivot.remove(grid);grid.traverse(o=>{if(o.geometry)o.geometry.dispose();if(o.material)(Array.isArray(o.material)?o.material:[o.material]).forEach(m=>{m.map&&m.map.dispose();m.dispose();});});grid=null;}
+
 }
 function setModel(obj,file){
   disposeModel();
@@ -270,29 +268,8 @@ function setModel(obj,file){
   model=obj;pivot.add(obj);
   model.traverse(o=>{if(o.isMesh){o.castShadow=true;}});
   const maxD=Math.max(size.x,size.y,size.z)||1;
-  const gsz=Math.max(maxD*6,6),half=gsz/2,cell=gsz/24;
-  grid=new THREE.Group();
-  const BG=new THREE.Color(0x0b0d10),r0=half*0.35,r1=half*0.98;
-  const colFor=(c,x,z)=>{let t=(Math.hypot(x,z)-r0)/(r1-r0);t=Math.max(0,Math.min(1,t));t=t*t*(3-2*t);return c.clone().lerp(BG,t);};
-  const mk=(color,step,op)=>{const pos=[],col=[],c=new THREE.Color(color);
-    for(let i=0;i<=36;i+=step){const p=-half+i*(gsz/36);
-      const seg=(x1,z1,x2,z2)=>{pos.push([x1,0,z1,x2,0,z2]);col.push(colFor(c,x1,z1),colFor(c,x2,z2));};
-      seg(p,-half,p,half);seg(-half,p,half,p);};
-    const g=new THREE.BufferGeometry();
-    g.setAttribute('position',new THREE.Float32BufferAttribute(pos.flat(),3));
-    g.setAttribute('color',new THREE.Float32BufferAttribute(col.flatMap(v=>[v.r,v.g,v.b]),3));
-    grid.add(new THREE.LineSegments(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:op,depthWrite:false})));};
-  mk(0x3b4551,1,1);
-  mk(0x4d5c70,6,1);
-  // axis overrides: full-length red X and green Z lines
-  (function(){const pos=[],col=[],cx=new THREE.Color(0xcc4a4a),cz=new THREE.Color(0x4f9e4f);
-    [[cx,-half,0,half,0],[cz,0,-half,0,half]].forEach(([c,x1,z1,x2,z2])=>{pos.push(x1,0.001,z1,x2,0.001,z2);col.push(colFor(c,x1,z1),colFor(c,x2,z2));});
-    const g=new THREE.BufferGeometry();
-    g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-    g.setAttribute('color',new THREE.Float32BufferAttribute(col.flatMap(v=>[v.r,v.g,v.b]),3));
-    grid.add(new THREE.Line(g,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,depthWrite:false})));})();
-grid.position.y=0.001-size.y/2;pivot.add(grid);
-shadowPlane.scale.set(maxD*6,maxD*6,1);shadowPlane.position.y=0;
+
+
   const r=Math.max(maxD/2,size.y/2)*2.1;
   controls.target.set(0,size.y/2,0);
   camera.near=r/1000;camera.far=r*100;camera.updateProjectionMatrix();
@@ -379,8 +356,7 @@ fi.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0]);fi.value='';};
 $('demoBtn').onclick=demo;
 $('bWire').onclick=e=>{const on=e.currentTarget.classList.toggle('on');model&&model.traverse(o=>{if(o.isMesh)o.material.wireframe=on;});};
 $('bSpin').onclick=e=>{controls.autoRotate=e.currentTarget.classList.toggle('on');};
-$('bGrid').onclick=e=>{gridOn=e.currentTarget.classList.toggle('on');grid&&(grid.visible=gridOn);};
-$('bGrid').classList.add('on');
+
 let infoCollapsed=innerWidth<640;
 function applyInfo(){infoEl.classList.toggle('collapsed',infoCollapsed);}
 ;
